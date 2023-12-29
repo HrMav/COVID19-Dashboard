@@ -62,3 +62,73 @@ Var Icon Total Unique Visits =
             negativeicon)
 
 Return result
+
+staffcount =
+COUNTX(
+    FILTER(
+        Staff,
+        Staff[Floor] = Floor[Floor] &&
+        NOT (Staff[Role] IN {"inbuilt", "outbuilt"})
+    ),
+    Staff[Role]
+)
+
+
+SpaceDifference = 
+VAR CurrentBuilding = SELECTEDVALUE(FloorMap[Building])
+VAR CurrentFloor = SELECTEDVALUE(FloorMap[Floor])
+VAR StaffFromFloorMap = IF(ISBLANK(CurrentFloor), SUM(FloorMap[Staff]), SELECTEDVALUE(FloorMap[Staff]))
+VAR DesksFromFloorMap = IF(ISBLANK(CurrentFloor), SUM(FloorMap[Desks]), SELECTEDVALUE(FloorMap[Desks]))
+VAR IsFlex = SELECTEDVALUE(FloorMap[Tag]) = "flex"
+
+VAR SpaceDifferenceFromFlexMap = 
+    IF(
+        IsFlex,
+        LOOKUPVALUE(FlexMap[SpaceDifference], FlexMap[Floor], CurrentFloor),
+        BLANK()
+    )
+
+RETURN
+IF(
+    ISBLANK(DesksFromFloorMap) || DesksFromFloorMap = 0,
+    0,
+    IF(
+        ISBLANK(CurrentFloor) && NOT IsFlex,
+        DesksFromFloorMap - StaffFromFloorMap,
+        IF(
+            IsFlex,
+            SpaceDifferenceFromFlexMap,
+            DesksFromFloorMap - StaffFromFloorMap
+        )
+    )
+)
+
+
+RoleRatio = 
+VAR CurrentBuilding = SELECTEDVALUE(FloorMap[Building])
+VAR CurrentFloor = SELECTEDVALUE(FloorMap[Floor])
+VAR SpecificRole = "Hybrid"  // You can change this to other roles as needed
+VAR ExcludedRoles = {"inbuilt", "outbuilt"}
+
+VAR FloorFilter = IF(ISBLANK(CurrentFloor), TRUE(), Staff[Floor] = CurrentFloor)
+
+VAR CountOfSpecificRole = CALCULATE(
+    COUNTROWS(Staff),
+    Staff[Building] = CurrentBuilding,
+    FloorFilter,
+    Staff[Staff Role] = SpecificRole
+)
+
+VAR TotalCountExcludingExcludedRoles = CALCULATE(
+    COUNTROWS(Staff),
+    Staff[Building] = CurrentBuilding,
+    FloorFilter,
+    NOT Staff[Staff Role] IN ExcludedRoles
+)
+
+RETURN
+IF(TotalCountExcludingExcludedRoles <> 0, 
+    DIVIDE(CountOfSpecificRole, TotalCountExcludingExcludedRoles),
+    BLANK()
+)
+
